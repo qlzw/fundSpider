@@ -7,9 +7,10 @@ from pandas import DataFrame, Series
 import time
 import os
 
-url = "http://fund.eastmoney.com/data/rankhandler.aspx?op=ph&dt=kf&ft=all&rs=&gs=0&sc=6yzf&st=desc&sd=2020-09-05&ed=2021-09-05&qdii=&tabSubtype=,,,,,&pi={}&pn=50&dx=1&v=0.16911294275552802"
-url2 = "http://fund.eastmoney.com/data/rankhandler.aspx?op=ph&dt=kf&ft=gp&rs=&gs=0&sc=6yzf&st=desc&sd=2020-09-05&ed=2021-09-05&qdii=&tabSubtype=,,,,,&pi=1&pn=50&dx=1&v=0.011487374477119783"
-url3 = "http://fund.eastmoney.com/data/rankhandler.aspx?op=ph&dt=kf&ft=all&rs=&gs=0&sc=6yzf&st=desc&sd=2020-09-05&ed=2021-09-05&qdii=&tabSubtype=,,,,,&pi=1&pn=50&dx=1&v=0.3770411775992588"
+# url2 = "http://fund.eastmoney.com/data/rankhandler.aspx?op=ph&dt=kf&ft=gp&rs=&gs=0&sc=6yzf&st=desc&sd=2020-09-05&ed=2021-09-05&qdii=&tabSubtype=,,,,,&pi=1&pn=50&dx=1&v=0.011487374477119783"
+# url3 = "http://fund.eastmoney.com/data/rankhandler.aspx?op=ph&dt=kf&ft=all&rs=&gs=0&sc=6yzf&st=desc&sd=2020-09-05&ed=2021-09-05&qdii=&tabSubtype=,,,,,&pi=1&pn=50&dx=1&v=0.3770411775992588"
+
+
 
 def get_fund_csv(url, pageStart, pageEnd, path):
 
@@ -45,7 +46,7 @@ def get_fund_csv(url, pageStart, pageEnd, path):
         for index, data in enumerate(data_json):
             dd = np.array(data.split(','))
             dd = [dd[0], dd[1], dd[3], dd[4], dd[5], dd[6], dd[7], dd[8], dd[9],
-                dd[10], dd[11], dd[12], dd[13], dd[14], dd[15], dd[16], dd[18], dd[19]]
+                  dd[10], dd[11], dd[12], dd[13], dd[14], dd[15], dd[16], dd[18], dd[19]]
             print(dd)
             DD[index, :] = dd
         Data[n:n+50, :] = DD
@@ -53,12 +54,15 @@ def get_fund_csv(url, pageStart, pageEnd, path):
         n += 50
 
     label = ["基金代码", "基金简称", "日期", "单位净值", "累计净值", "日增长率", "近1周", "近1月",
-            "近3月", "近6月", "近1年", "近2年", "近3年", "今年来", "成立来", "成立时间", "自定义", "手续费"]
+             "近3月", "近6月", "近1年", "近2年", "近3年", "今年来", "成立来", "成立时间", "自定义", "手续费"]
     # print(data)
     df = DataFrame(Data, columns=label)
     path = "fund_data.csv"
 
-if __name__ == '__main__' :
+
+if __name__ == '__main__':
+    
+    url = "http://fund.eastmoney.com/data/rankhandler.aspx?op=ph&dt=kf&ft=all&rs=&gs=0&sc=6yzf&st=desc&sd=2020-09-05&ed=2021-09-05&qdii=&tabSubtype=,,,,,&pi={}&pn=50&dx=1&v=0.16911294275552802"
 
     t1 = time.time()
     pageStart = 1
