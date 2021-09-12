@@ -9,9 +9,6 @@ import time
 import os
 import threading
 import fund
-# url2 = "http://fund.eastmoney.com/data/rankhandler.aspx?op=ph&dt=kf&ft=gp&rs=&gs=0&sc=6yzf&st=desc&sd=2020-09-05&ed=2021-09-05&qdii=&tabSubtype=,,,,,&pi=1&pn=50&dx=1&v=0.011487374477119783"
-# url3 = "http://fund.eastmoney.com/data/rankhandler.aspx?op=ph&dt=kf&ft=all&rs=&gs=0&sc=6yzf&st=desc&sd=2020-09-05&ed=2021-09-05&qdii=&tabSubtype=,,,,,&pi=1&pn=50&dx=1&v=0.3770411775992588"
-
 
 ft_map = {
     '全部': 'all',
@@ -37,9 +34,8 @@ sc_map = {
     '自定义时间段': 'qjzf'
 }
 
-
 class GetFundData(threading.Thread):
-    def __init__(self, pageStart, pageEnd, dateStart, dateEnd, ft, sc, csv_path):
+    def __init__(self, pageStart, pageEnd, dateStart, dateEnd, ft, sc, pn, Data):
         threading.Thread.__init__(self)
         self.pageStart = pageStart
         self.pageEnd = pageEnd
@@ -47,16 +43,16 @@ class GetFundData(threading.Thread):
         self.dateEnd = dateEnd
         self.ft = ft
         self.sc = sc
-        self.csv_path = csv_path
-
+        self.pn = pn
+        self.Data = Data
     def run(self):
         get_fund_csv(self.pageStart, self.pageEnd, self.dateStart,
-                     self.dateEnd, self.ft, self.sc, self.csv_path)
+                     self.dateEnd, self.ft, self.sc, self.pn, self.Data)
 
 
-def get_fund_csv(pageStart, pageEnd, dateStart, dateEnd, ft, sc, csv_path):
+def get_fund_csv(pageStart, pageEnd, dateStart, dateEnd, ft, sc, pn, Data):
     # sc按照哪个数据排序 ft按照哪个基金类型
-    url = "http://fund.eastmoney.com/data/rankhandler.aspx?op=ph&dt=kf&ft={ft}&rs=&gs=0&sc={sc}&st=desc&sd={sd}&ed={ed}&qdii=&tabSubtype=,,,,,&pi={page}&pn=50&dx=1&v=0.16911294275552802"
+    url = "http://fund.eastmoney.com/data/rankhandler.aspx?op=ph&dt=kf&ft={ft}&rs=&gs=0&sc={sc}&st=desc&sd={sd}&ed={ed}&qdii=&tabSubtype=,,,,,&pi={page}&pn={pn}&dx=1&v=0.16911294275552802"
     header = {
         "Host": "fund.eastmoney.com",
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36",
@@ -68,15 +64,13 @@ def get_fund_csv(pageStart, pageEnd, dateStart, dateEnd, ft, sc, csv_path):
         "Connection": "keep-alive",
     }
 
-    n = 0
-
-    Data = np.zeros(((pageEnd - pageStart + 1)*50, 18)).astype(str)
-    row = 50
+    n = pn * (pageStart-1)
+    row = pn
     col = 18
     for page in range(pageStart, pageEnd+1):
         print("正在爬取第{}页".format(page))
         resp = requests.get(url.format(
-            page=page, sd=dateStart, ed=dateEnd, ft=ft, sc=sc), timeout=30, headers=header)
+            page=page, sd=dateStart, ed=dateEnd, ft=ft, sc=sc, pn=pn), timeout=30, headers=header)
         content = resp.content.decode('utf-8')
 
         # print(type(content))
@@ -93,18 +87,14 @@ def get_fund_csv(pageStart, pageEnd, dateStart, dateEnd, ft, sc, csv_path):
                   dd[10], dd[11], dd[12], dd[13], dd[14], dd[15], dd[16], dd[18], dd[19]]
             # print(dd)
             DD[index, :] = dd
-        Data[n:n+50, :] = DD
+        Data[n:n+pn, :] = DD
         # print(Data)
-        n += 50
-
-    label = ["基金代码", "基金简称", "日期", "单位净值", "累计净值", "日增长率", "近1周", "近1月",
-             "近3月", "近6月", "近1年", "近2年", "近3年", "今年来", "成立来", "成立时间", "{} 至 {}".format(dateStart, dateEnd), "手续费"]
+        n += pn
     # print(data)
-    df = DataFrame(Data, columns=label)
-    df.to_csv(csv_path, index=False)
 
 
-def thread_start(page, page_per_thread, dateStart, dateEnd, ft, sc, csv_file_name):
+
+def thread_start(page, page_per_thread, dateStart, dateEnd, ft, sc, pn, Data):
     # 全部基金最多174页
     if page > 174:
         page = 174
@@ -114,17 +104,16 @@ def thread_start(page, page_per_thread, dateStart, dateEnd, ft, sc, csv_file_nam
     start = 1
     end = start + page_per_thread - 1
     count = int(page/page_per_thread)
-    suffix = '.csv'
     thread_list = []
     if page % page_per_thread != 0:
         count += 1
     for index in range(count):
-        csv_path = csv_file_name + str(index) + suffix
-        t = GetFundData(start, end, dateStart, dateEnd, ft, sc, csv_path)
+        t = GetFundData(start, end, dateStart, dateEnd, ft, sc, pn, Data)
+        print('线程：' + t.getName() + "就绪，任务是爬取第{}页-{}页".format(start, end))
         t.start()
         thread_list.append(t)
         start = end + 1
-        if end < page:
+        if end + page_per_thread < page:
             end = end + page_per_thread
         else:
             end = page
@@ -133,16 +122,41 @@ def thread_start(page, page_per_thread, dateStart, dateEnd, ft, sc, csv_file_nam
 
 if __name__ == '__main__':
     t1 = time.time()
+    # 每个线程请求页数
     page_per_thread = 20
+    # 请求页数
     page = 107
-    csv_file_name = 'data/fund_data_muti'
+    # 每页请求数据个数
+    pn = 50
+    # 文件名
+    csv_path = 'data/fund_data_muti.csv'
+    # 自定义字段开始时间
     dateStart = '2021-02-01'
+    # 自定义字段结束时间
     dateEnd = '2021-09-11'
+    # 排序方式
     sc = sc_map['近6月']
+    # 基金类型
     ft = ft_map['全部']
+    # 数据frame
+    Data = np.zeros((page*pn, 18)).astype(str)
+    
+    #开始任务
+    t2 = time.time()
     thread_list = thread_start(
-        page, page_per_thread, dateStart, dateEnd, ft, sc, csv_file_name)
+        page, page_per_thread, dateStart, dateEnd, ft, sc, pn, Data)
     for t in thread_list:
         t.join()
-    t2 = time.time()
-    print("总共消耗时间：{}s".format(t2 - t1))  # 21.901598930358887s
+
+    # 写入数据
+    t3 = time.time()
+    label = ["基金代码", "基金简称", "日期", "单位净值", "累计净值", "日增长率", "近1周", "近1月",
+             "近3月", "近6月", "近1年", "近2年", "近3年", "今年来", "成立来", "成立时间", "{} 至 {}".format(dateStart, dateEnd), "手续费"]
+    df = DataFrame(Data, columns=label)
+    df.to_csv(csv_path, index=False)
+    t4 = time.time()
+
+    print("总共消耗时间：{}s".format(t4 - t1))  # 6-25s
+    print("初始化消耗时间：{}s".format(t2 - t1)) 
+    print("爬虫任务消耗时间：{}s".format(t3 - t2))  
+    print("写文件消耗时间：{}s".format(t4 - t3))
