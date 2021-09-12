@@ -75,7 +75,7 @@ if __name__ == '__main__':
     ft = 'all'
     get_fund_csv(pageStart, pageEnd, dateStart, dateEnd, ft, sc, csv_path)
     t2 = time.time()
-    print("总共消耗时间：{}s".format(t2 - t1)) # 55.56074285507202s
+    print("总共消耗时间：{}s".format(t2 - t1)) #60-100s
     # df.to_csv(path, index=False)
     # with open('fund.html', 'w') as f:
     #     f.write(content)
